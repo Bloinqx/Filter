@@ -1,0 +1,100 @@
+# ======================== #
+#
+#   Filter v1.0 by Blinqx
+#
+# ======================== #
+
+options:
+# === Main Options ===
+
+	# Main broadcaster command (also used as admin command prefix)
+	filterMainCmd: filter
+	filterAliases: chatfilter
+	
+	# No Permission Message
+	permDenied: &8• &7You lack permission for that
+	# Permission Node Prefix
+	permPrefix: skript # permission node will begin with this, ex: "skript.broadcaster"
+	# Permission to allow player to bypass the filter
+	filterBypass: skript.filter.bypass
+	# Players with this perm will be notified if a player tries to say a filtered word
+	filterNotify: skript.filter.notify
+	
+	# Color Theme
+	aColor: &7 # Main text color
+	bColor: &b # Emphasis text color
+	cColor: &3 # Extra emphasis color numbers in broadcast list
+	
+	# Prefix that leads every message
+	filterPrefix: &8[&bFilter&8]
+	# Message shown to players who try to say a filtered word
+	msgFiltered: &8[&bFilter&8] &cPlease refrain from swearing!
+	
+	
+# === Actual Skript ===
+
+function contains(list: objects, check: object) :: boolean:
+    loop {_list::*}:
+        if {_check} contains loop-value:
+            return true
+    return false
+
+command /{@filterMainCmd} [<text>] [<text>]:
+	aliases: {@filterAliases}
+	permission: {@permPrefix}.filter
+	permission message: {@permDenied}
+	trigger:
+		if arg-1 is set:
+			if arg-1 is "add" or "new":
+				if arg-2 is set:
+					if {filter::blockedwords::*} contains arg-2:
+						send "{@filterPrefix} &c%arg-2% {@aColor}is already filtered!"
+					else:
+						if arg-2 is "hoe":
+							send "{@filterPrefix} &cCaution! {@aColor}False positive is possible with words like ""whoever"""
+							add arg-2 to {filter::blockedwords::*}
+							send "{@filterPrefix} {@bColor}%arg-2% {@aColor}is now filtered!"
+							stop
+						else:
+							add arg-2 to {filter::blockedwords::*}
+							send "{@filterPrefix} {@bColor}%arg-2% {@aColor}is now filtered!"
+							stop
+				else:
+					send "{@filterPrefix} {@aColor}Usage: /{@filterMainCmd} add/new <word>"
+					
+			else if arg-1 is "remove" or "del":
+				if arg-2 is set:
+					if {filter::blockedwords::*} contains arg-2:
+						loop {filter::blockedwords::*}:
+							if "%loop-value%" = arg-2:
+								set {_index} to loop-index parsed as an integer
+								exit loop
+						while {_index} < size of {filter::blockedwords::*}:
+							set {filter::blockedwords::%{_index}%} to {filter::blockedwords::%{_index}+1%}
+							add 1 to {_index}
+						delete {filter::blockedwords::%size of {filter::blockedwords::*}%}
+						send "{@filterPrefix} {@bColor}%arg-2% {@aColor}is no longer filtered!"
+					else:
+						send "{@filterPrefix} {@aColor}That word isn't filtered"
+				else:
+					send "{@filterPrefix} {@aColor}Usage: /{@filterMainCmd} remove/del <word>"
+					
+			else if arg-1 is "list":
+				send "{@filterPrefix} {@aColor}Filtered words {@cColor}(%size of {filter::blockedwords::*}%){@aColor}: {@bColor}%{filter::blockedwords::*}%"
+			else:
+				player command "/filter"
+		else:
+			send ""
+			send "{@filterPrefix} {@bColor}/{@filterMainCmd} new/add <word> {@aColor}- Filter a word"
+			send "{@filterPrefix} {@bColor}/{@filterMainCmd} del/remove <word> {@aColor}- Unfilter a word"
+			send "{@filterPrefix} {@bColor}/{@filterMainCmd} list {@aColor}- List all filtered words"
+			send ""
+		
+on chat:
+	if player doesn't have permissions "{@filterBypass}":
+		if contains({filter::blockedwords::*}, message) is true:
+			cancel event
+			send "{@msgFiltered}"
+			loop all players:
+				if loop-player has permission "{@filterNotify}":
+					send "{@filterPrefix} {@bColor}%player% {@aColor}tried to say a filtered word!" to loop-player
